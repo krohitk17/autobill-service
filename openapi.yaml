@@ -1,0 +1,1749 @@
+openapi: 3.0.0
+info:
+  version: '2.0.0'
+  title: Autobill Service API
+  description: API for expense splitting, settlements, and group management
+servers:
+  - url: http://localhost:3000
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # Common
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+
+    # User schemas
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    UserLogin:
+      type: object
+      properties:
+        id:
+          type: string
+        token:
+          type: string
+        refresh_token:
+          type: string
+
+    UpdateUser:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    # Social schemas
+    FriendRequest:
+      type: object
+      properties:
+        request_id:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, ACCEPTED, REJECTED]
+
+    FriendRequestList:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [RECEIVED, SENT]
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/FriendRequest'
+
+    Friend:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        status:
+          type: string
+
+    FriendsList:
+      type: object
+      properties:
+        id:
+          type: string
+        friends:
+          type: array
+          items:
+            $ref: '#/components/schemas/Friend'
+
+    # Group schemas
+    Group:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    GroupMember:
+      type: object
+      properties:
+        user_id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [OWNER, ADMIN, MEMBER]
+
+    GroupDetail:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupMember'
+
+    GroupList:
+      type: object
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/Group'
+
+    # Split schemas
+    Participant:
+      type: object
+      properties:
+        user_id:
+          type: string
+        user_name:
+          type: string
+        share_amount:
+          type: integer
+          format: int64
+        currency:
+          type: string
+        is_settled:
+          type: boolean
+
+    Split:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [GROUP, DIRECT]
+        division_type:
+          type: string
+          enum: [EQUAL, CUSTOM]
+        total_amount:
+          type: integer
+          format: int64
+        currency:
+          type: string
+          enum: [INR, USD, EUR]
+        description:
+          type: string
+        group_id:
+          type: string
+        created_by_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        is_finalized:
+          type: boolean
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/Participant'
+
+    SplitList:
+      type: object
+      properties:
+        splits:
+          type: array
+          items:
+            $ref: '#/components/schemas/Split'
+
+    # Settlement schemas
+    Settlement:
+      type: object
+      properties:
+        id:
+          type: string
+        split_id:
+          type: string
+        payer_id:
+          type: string
+        payer_name:
+          type: string
+        payee_id:
+          type: string
+        payee_name:
+          type: string
+        amount:
+          type: integer
+          format: int64
+        currency:
+          type: string
+        date:
+          type: string
+          format: date-time
+        confirmed:
+          type: boolean
+
+    SettlementList:
+      type: object
+      properties:
+        settlements:
+          type: array
+          items:
+            $ref: '#/components/schemas/Settlement'
+
+    # Balance schemas
+    UserBalanceItem:
+      type: object
+      properties:
+        other_user_id:
+          type: string
+        other_user_name:
+          type: string
+        net_amount:
+          type: integer
+          format: int64
+        currency:
+          type: string
+
+    UserBalance:
+      type: object
+      properties:
+        user_id:
+          type: string
+        balances:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserBalanceItem'
+
+    GroupBalanceItem:
+      type: object
+      properties:
+        user_id:
+          type: string
+        user_name:
+          type: string
+        net_amount:
+          type: integer
+          format: int64
+        currency:
+          type: string
+
+    GroupBalance:
+      type: object
+      properties:
+        group_id:
+          type: string
+        group_name:
+          type: string
+        balances:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupBalanceItem'
+
+    # Audit schemas
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+        user_name:
+          type: string
+        action:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    AuditLogList:
+      type: object
+      properties:
+        audit_logs:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLog'
+
+paths:
+  # ==================== AUTH ====================
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, name, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                name:
+                  type: string
+                password:
+                  type: string
+                  minLength: 8
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserLogin'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserLogin'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/reactivate:
+    post:
+      tags: [Auth]
+      summary: Reactivate a deactivated user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+      responses:
+        '204':
+          description: User reactivated
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token using refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '200':
+          description: New token pair
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserLogin'
+        '401':
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout and revoke refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '204':
+          description: Logged out successfully
+        '404':
+          description: Refresh token not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/logout-all:
+    post:
+      tags: [Auth]
+      summary: Logout from all devices (revoke all refresh tokens)
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: All sessions terminated
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/password:
+    put:
+      tags: [Auth]
+      summary: Update password
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [old_password, new_password]
+              properties:
+                old_password:
+                  type: string
+                  minLength: 8
+                new_password:
+                  type: string
+                  minLength: 8
+      responses:
+        '200':
+          description: Password updated
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/deactivate:
+    delete:
+      tags: [Auth]
+      summary: Deactivate user account
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password:
+                  type: string
+                  minLength: 8
+      responses:
+        '200':
+          description: User deactivated
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ==================== USER ====================
+  /user/:
+    get:
+      tags: [User]
+      summary: Get current user profile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /user/search:
+    post:
+      tags: [User]
+      summary: Find user by email
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /user/update:
+    put:
+      tags: [User]
+      summary: Update user profile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                name:
+                  type: string
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateUser'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ==================== SOCIAL ====================
+  /social/requests/all:
+    get:
+      tags: [Social]
+      summary: Get friend requests list
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of friend requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FriendRequestList'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /social/requests/sendRequest:
+    post:
+      tags: [Social]
+      summary: Send friend request
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [receiver_id]
+              properties:
+                receiver_id:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Friend request sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request_id:
+                    type: string
+        '400':
+          description: Invalid request (self-request, already friends, request exists)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /social/requests/acceptRequest:
+    post:
+      tags: [Social]
+      summary: Accept friend request
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [request_id]
+              properties:
+                request_id:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Friend request accepted
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Request not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /social/requests/rejectRequest:
+    delete:
+      tags: [Social]
+      summary: Reject friend request
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [request_id]
+              properties:
+                request_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Friend request rejected
+        '404':
+          description: Request not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /social/friends/all:
+    get:
+      tags: [Social]
+      summary: Get friends list
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of friends
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FriendsList'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /social/friends/remove:
+    delete:
+      tags: [Social]
+      summary: Remove friend
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [friend_id]
+              properties:
+                friend_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Friend removed
+        '404':
+          description: Friend not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ==================== GROUPS ====================
+  /groups:
+    post:
+      tags: [Groups]
+      summary: Create a new group
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Group created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    get:
+      tags: [Groups]
+      summary: Get all groups for current user
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of groups
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupList'
+
+  /groups/{groupId}:
+    get:
+      tags: [Groups]
+      summary: Get group details
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Group details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupDetail'
+        '403':
+          description: Not a group member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Group not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      tags: [Groups]
+      summary: Update group details
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+      responses:
+        '200':
+          description: Group updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '403':
+          description: Not authorized (must be admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags: [Groups]
+      summary: Delete group
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Group deleted
+        '400':
+          description: Cannot delete group with active splits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not authorized (must be owner)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /groups/{groupId}/leave:
+    post:
+      tags: [Groups]
+      summary: Leave a group
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Left the group
+        '400':
+          description: Owner cannot leave or has pending splits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not a group member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /groups/{groupId}/members:
+    post:
+      tags: [Groups]
+      summary: Add member to group
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, role]
+              properties:
+                user_id:
+                  type: string
+                  format: uuid
+                role:
+                  type: string
+                  enum: [ADMIN, MEMBER]
+      responses:
+        '201':
+          description: Member added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupMember'
+        '400':
+          description: Invalid request or user already member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not authorized (must be admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /groups/{groupId}/members/{userId}/role:
+    patch:
+      tags: [Groups]
+      summary: Update member role
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role:
+                  type: string
+                  enum: [OWNER, ADMIN, MEMBER]
+      responses:
+        '200':
+          description: Role updated
+        '400':
+          description: Invalid role or cannot change owner role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /groups/{groupId}/members/{userId}:
+    delete:
+      tags: [Groups]
+      summary: Remove member from group
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Member removed
+        '400':
+          description: Cannot remove owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ==================== SPLITS ====================
+  /splits:
+    post:
+      tags: [Splits]
+      summary: Create a new split
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, division_type, total_amount, currency, participants]
+              properties:
+                type:
+                  type: string
+                  enum: [GROUP, DIRECT]
+                division_type:
+                  type: string
+                  enum: [EQUAL, CUSTOM]
+                total_amount:
+                  type: integer
+                  format: int64
+                  minimum: 1
+                currency:
+                  type: string
+                  enum: [INR, USD, EUR]
+                description:
+                  type: string
+                group_id:
+                  type: string
+                  format: uuid
+                  description: Required for GROUP type
+                participants:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [user_id]
+                    properties:
+                      user_id:
+                        type: string
+                        format: uuid
+                      share_amount:
+                        type: integer
+                        format: int64
+      responses:
+        '201':
+          description: Split created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Split'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /splits/me:
+    get:
+      tags: [Splits]
+      summary: Get all splits for current user
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 10
+            maximum: 100
+      responses:
+        '200':
+          description: List of user's splits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SplitList'
+
+  /splits/{splitId}:
+    get:
+      tags: [Splits]
+      summary: Get split details
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: splitId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Split details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Split'
+        '404':
+          description: Split not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags: [Splits]
+      summary: Delete a split (only non-finalized splits)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: splitId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Split deleted
+        '400':
+          description: Cannot delete finalized split
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not authorized (must be creator)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Split not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /splits/groups/{groupId}:
+    get:
+      tags: [Splits]
+      summary: Get all splits for a group
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of splits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SplitList'
+        '403':
+          description: Not a group member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /splits/{splitId}/participants:
+    post:
+      tags: [Splits]
+      summary: Add participant to split
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: splitId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id]
+              properties:
+                user_id:
+                  type: string
+                  format: uuid
+                share_amount:
+                  type: integer
+                  format: int64
+      responses:
+        '201':
+          description: Participant added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Participant'
+        '400':
+          description: Split already finalized or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /splits/{splitId}/participants/{userId}:
+    patch:
+      tags: [Splits]
+      summary: Update participant share
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: splitId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [share_amount]
+              properties:
+                share_amount:
+                  type: integer
+                  format: int64
+                  minimum: 1
+                is_settled:
+                  type: boolean
+      responses:
+        '200':
+          description: Participant updated
+        '400':
+          description: Split already finalized or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /splits/{splitId}/finalize:
+    post:
+      tags: [Splits]
+      summary: Finalize split (lock for further changes)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: splitId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Split finalized
+        '400':
+          description: Already finalized or cannot finalize
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not authorized (must be creator)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /splits/{splitId}/reverse:
+    post:
+      tags: [Splits]
+      summary: Reverse a finalized split
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: splitId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '201':
+          description: Reversal split created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Split'
+        '400':
+          description: Split not finalized or already reversed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ==================== SETTLEMENTS ====================
+  /settlements:
+    post:
+      tags: [Settlements]
+      summary: Create a settlement payment
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [split_id, payee_id, amount, currency]
+              properties:
+                split_id:
+                  type: string
+                  format: uuid
+                payee_id:
+                  type: string
+                  format: uuid
+                amount:
+                  type: integer
+                  format: int64
+                  minimum: 1
+                currency:
+                  type: string
+                  enum: [INR, USD, EUR]
+                idempotency_key:
+                  type: string
+                  maxLength: 64
+                  description: Optional key to prevent duplicate settlements
+      responses:
+        '201':
+          description: Settlement created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Settlement'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /settlements/pending:
+    get:
+      tags: [Settlements]
+      summary: Get pending settlements for current user
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of pending settlements
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettlementList'
+
+  /settlements/history:
+    get:
+      tags: [Settlements]
+      summary: Get settlement history for current user
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Settlement history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettlementList'
+
+  /settlements/{settlementId}/confirm:
+    post:
+      tags: [Settlements]
+      summary: Confirm a settlement payment
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: settlementId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Settlement confirmed
+        '403':
+          description: Not authorized (must be payee)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Settlement not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /settlements/{settlementId}:
+    delete:
+      tags: [Settlements]
+      summary: Delete a settlement (only unconfirmed, by payer)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: settlementId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Settlement deleted
+        '400':
+          description: Cannot delete confirmed settlement
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not authorized (must be payer)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Settlement not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ==================== BALANCES ====================
+  /balances/me:
+    get:
+      tags: [Balances]
+      summary: Get current user's balance with all users
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User balances
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserBalance'
+
+  /balances/users/{userId}:
+    get:
+      tags: [Balances]
+      summary: Get another user's balance
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User balances
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserBalance'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /balances/groups/{groupId}:
+    get:
+      tags: [Balances]
+      summary: Get group balances
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Group balances
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupBalance'
+        '403':
+          description: Not a group member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /balances/groups/{groupId}/recalculate:
+    post:
+      tags: [Balances]
+      summary: Recalculate group balances
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Balances recalculated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupBalance'
+        '403':
+          description: Not a group member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ==================== AUDIT ====================
+  /audit/users/{userId}:
+    get:
+      tags: [Audit]
+      summary: Get audit logs for a user
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User audit logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogList'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /audit/groups/{groupId}:
+    get:
+      tags: [Audit]
+      summary: Get audit logs for a group
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Group audit logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogList'
+        '403':
+          description: Not a group member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /audit/splits/{splitId}:
+    get:
+      tags: [Audit]
+      summary: Get audit logs for a split
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: splitId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Split audit logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogList'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+tags:
+  - name: Auth
+    description: Authentication and account management
+  - name: User
+    description: User profile operations
+  - name: Social
+    description: Friend requests and friendships
+  - name: Groups
+    description: Group management and membership
+  - name: Splits
+    description: Expense splitting
+  - name: Settlements
+    description: Payment settlements
+  - name: Balances
+    description: Balance calculations
+  - name: Audit
+    description: Audit logs
