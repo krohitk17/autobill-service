@@ -2,7 +2,6 @@ package RepositoryAdapters
 
 import (
 	"context"
-	"errors"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -12,7 +11,6 @@ import (
 	Errors "autobill-service/pkg/errors"
 
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 type BalanceRepository struct {
@@ -29,36 +27,6 @@ func (repo *BalanceRepository) GetUserBalances(ctx context.Context, userId uuid.
 		return nil, fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
 	}
 	return balances, nil
-}
-
-func (repo *BalanceRepository) GetOrCreateUserBalance(ctx context.Context, userId, otherUserId uuid.UUID, currency Domain.Currency) (*Domain.UserBalance, error) {
-	var balance Domain.UserBalance
-	err := repo.db.DB.WithContext(ctx).Preload("OtherUser").Where("user_id = ? AND other_user_id = ? AND currency = ?", userId, otherUserId, currency).First(&balance).Error
-	if err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
-		}
-		balance = Domain.UserBalance{
-			UserID:      userId,
-			OtherUserID: otherUserId,
-			NetAmount:   0,
-			Currency:    currency,
-		}
-		if err := repo.db.DB.WithContext(ctx).Create(&balance).Error; err != nil {
-			return nil, fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
-		}
-		if err := repo.db.DB.WithContext(ctx).Preload("OtherUser").First(&balance, "id = ?", balance.Id).Error; err != nil {
-			return nil, fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
-		}
-	}
-	return &balance, nil
-}
-
-func (repo *BalanceRepository) UpdateUserBalance(ctx context.Context, balance *Domain.UserBalance) error {
-	if err := repo.db.DB.WithContext(ctx).Save(balance).Error; err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
-	}
-	return nil
 }
 
 func (repo *BalanceRepository) UpdateBalancesForSplit(ctx context.Context, split *Domain.Split, participants []Domain.SplitParticipant) error {
@@ -207,39 +175,9 @@ func (repo *BalanceRepository) GetGroupBalances(ctx context.Context, groupId uui
 	return balances, nil
 }
 
-func (repo *BalanceRepository) GetOrCreateGroupBalance(ctx context.Context, userId, groupId uuid.UUID, currency Domain.Currency) (*Domain.GroupBalance, error) {
-	var balance Domain.GroupBalance
-	err := repo.db.DB.WithContext(ctx).Preload("User").Where("user_id = ? AND group_id = ? AND currency = ?", userId, groupId, currency).First(&balance).Error
-	if err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
-		}
-		balance = Domain.GroupBalance{
-			UserID:    userId,
-			GroupID:   groupId,
-			NetAmount: 0,
-			Currency:  currency,
-		}
-		if err := repo.db.DB.WithContext(ctx).Create(&balance).Error; err != nil {
-			return nil, fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
-		}
-		if err := repo.db.DB.WithContext(ctx).Preload("User").First(&balance, "id = ?", balance.Id).Error; err != nil {
-			return nil, fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
-		}
-	}
-	return &balance, nil
-}
-
-func (repo *BalanceRepository) UpdateGroupBalance(ctx context.Context, balance *Domain.GroupBalance) error {
-	if err := repo.db.DB.WithContext(ctx).Save(balance).Error; err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
-	}
-	return nil
-}
-
-func (repo *BalanceRepository) GetFinalizedSplitsWithParticipants(ctx context.Context, groupId uuid.UUID) ([]Domain.Split, error) {
+func (repo *BalanceRepository) GetSplitsWithParticipants(ctx context.Context, groupId uuid.UUID) ([]Domain.Split, error) {
 	var splits []Domain.Split
-	if err := repo.db.DB.WithContext(ctx).Preload("Participants").Where("group_id = ? AND is_finalized = ?", groupId, true).Find(&splits).Error; err != nil {
+	if err := repo.db.DB.WithContext(ctx).Preload("Participants").Where("group_id = ?", groupId).Find(&splits).Error; err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
 	}
 	return splits, nil

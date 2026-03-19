@@ -17,7 +17,6 @@ type User struct {
 	SplitParticipants []SplitParticipant `gorm:"foreignKey:UserID;references:Id"`
 	UserBalances      []UserBalance      `gorm:"foreignKey:UserID;references:Id"`
 	GroupBalances     []GroupBalance     `gorm:"foreignKey:UserID;references:Id"`
-	AuditLogs         []AuditLog         `gorm:"foreignKey:UserID;references:Id"`
 }
 
 type AccountStatus string

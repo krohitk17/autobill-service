@@ -14,14 +14,12 @@ components:
       bearerFormat: JWT
 
   schemas:
-    # Common
     Error:
       type: object
       properties:
         message:
           type: string
 
-    # User schemas
     User:
       type: object
       properties:
@@ -61,7 +59,6 @@ components:
           type: string
           format: date-time
 
-    # Social schemas
     FriendRequest:
       type: object
       properties:
@@ -110,7 +107,6 @@ components:
           items:
             $ref: '#/components/schemas/Friend'
 
-    # Group schemas
     Group:
       type: object
       properties:
@@ -158,7 +154,6 @@ components:
           items:
             $ref: '#/components/schemas/Group'
 
-    # Split schemas
     Participant:
       type: object
       properties:
@@ -200,8 +195,6 @@ components:
         created_at:
           type: string
           format: date-time
-        is_finalized:
-          type: boolean
         participants:
           type: array
           items:
@@ -215,7 +208,6 @@ components:
           items:
             $ref: '#/components/schemas/Split'
 
-    # Settlement schemas
     Settlement:
       type: object
       properties:
@@ -250,7 +242,6 @@ components:
           items:
             $ref: '#/components/schemas/Settlement'
 
-    # Balance schemas
     UserBalanceItem:
       type: object
       properties:
@@ -300,7 +291,6 @@ components:
             $ref: '#/components/schemas/GroupBalanceItem'
 
 paths:
-  # ==================== AUTH ====================
   /auth/register:
     post:
       tags: [Auth]
@@ -526,7 +516,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  # ==================== USER ====================
   /user/:
     get:
       tags: [User]
@@ -610,7 +599,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  # ==================== SOCIAL ====================
   /social/requests/all:
     get:
       tags: [Social]
@@ -772,7 +760,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  # ==================== GROUPS ====================
   /groups:
     post:
       tags: [Groups]
@@ -1069,7 +1056,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  # ==================== SPLITS ====================
   /splits:
     post:
       tags: [Splits]
@@ -1183,40 +1169,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-    delete:
-      tags: [Splits]
-      summary: Delete a split (only non-finalized splits)
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: splitId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '204':
-          description: Split deleted
-        '400':
-          description: Cannot delete finalized split
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '403':
-          description: Not authorized (must be creator)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Split not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
   /splits/groups/{groupId}:
     get:
       tags: [Splits]
@@ -1244,123 +1196,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /splits/{splitId}/participants:
-    post:
-      tags: [Splits]
-      summary: Add participant to split
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: splitId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [user_id]
-              properties:
-                user_id:
-                  type: string
-                  format: uuid
-                share_amount:
-                  type: integer
-                  format: int64
-      responses:
-        '201':
-          description: Participant added
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Participant'
-        '400':
-          description: Split already finalized or invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /splits/{splitId}/participants/{userId}:
-    patch:
-      tags: [Splits]
-      summary: Update participant share
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: splitId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: userId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [share_amount]
-              properties:
-                share_amount:
-                  type: integer
-                  format: int64
-                  minimum: 1
-                is_settled:
-                  type: boolean
-      responses:
-        '200':
-          description: Participant updated
-        '400':
-          description: Split already finalized or invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /splits/{splitId}/finalize:
-    post:
-      tags: [Splits]
-      summary: Finalize split (lock for further changes)
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: splitId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: Split finalized
-        '400':
-          description: Already finalized or cannot finalize
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '403':
-          description: Not authorized (must be creator)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
   /splits/{splitId}/reverse:
     post:
       tags: [Splits]
-      summary: Reverse a finalized split
+      summary: Reverse a split
       security:
         - BearerAuth: []
       parameters:
@@ -1378,7 +1217,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Split'
         '400':
-          description: Split not finalized or already reversed
+          description: Split already reversed
           content:
             application/json:
               schema:
@@ -1390,7 +1229,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  # ==================== SETTLEMENTS ====================
   /settlements:
     post:
       tags: [Settlements]
@@ -1528,7 +1366,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  # ==================== BALANCES ====================
   /balances/me:
     get:
       tags: [Balances]

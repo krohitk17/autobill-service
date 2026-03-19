@@ -20,7 +20,6 @@ type SplitResponseDto struct {
 	GroupID       string                   `json:"group_id,omitempty"`
 	CreatedByID   string                   `json:"created_by_id"`
 	CreatedAt     time.Time                `json:"created_at"`
-	IsFinalized   bool                     `json:"is_finalized"`
 	SimplifyDebts *bool                    `json:"simplify_debts"`
 	Participants  []ParticipantResponseDto `json:"participants"`
 }

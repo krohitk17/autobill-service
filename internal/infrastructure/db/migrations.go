@@ -6,9 +6,8 @@ import (
 	"gorm.io/gorm"
 )
 
-func MigrateDB(db *gorm.DB) {
-
-	db.AutoMigrate(
+func MigrateDB(db *gorm.DB) error {
+	err := db.AutoMigrate(
 		&Domain.User{},
 		&Domain.Credential{},
 		&Domain.RefreshToken{},
@@ -22,6 +21,11 @@ func MigrateDB(db *gorm.DB) {
 		&Domain.Settlement{},
 		&Domain.UserBalance{},
 		&Domain.GroupBalance{},
-		&Domain.AuditLog{},
 	)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -15,20 +15,6 @@ type RefreshTokenInput struct {
 	RefreshToken string
 }
 
-type UpdatePasswordInput struct {
-	OldPassword string
-	NewPassword string
-}
-
-type DeactivateUserInput struct {
-	Password string
-}
-
-type ReactivateUserInput struct {
-	Email    string
-	Password string
-}
-
 type AuthResult struct {
 	ID           string
 	Token        string

@@ -14,7 +14,3 @@ type UpdateUserInput struct {
 	Email string
 	Name  string
 }
-
-type FindUserByEmailInput struct {
-	Email string
-}

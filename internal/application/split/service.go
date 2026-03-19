@@ -91,6 +91,10 @@ func (s *SplitService) CreateSplit(ctx context.Context, userId uuid.UUID, input 
 		}
 	}
 
+	if err := s.validateSplitAmountMatchesShares(input.TotalAmount, domainParticipants); err != nil {
+		return nil, err
+	}
+
 	split := &Domain.Split{
 		Type:          Domain.SplitType(input.Type),
 		DivisionType:  Domain.SplitDivisionType(input.DivisionType),
@@ -106,6 +110,11 @@ func (s *SplitService) CreateSplit(ctx context.Context, userId uuid.UUID, input 
 	if dbErr != nil {
 		return nil, dbErr
 	}
+	createdSplit.Participants = createdParticipants
+
+	if err := s.balanceRepo.UpdateBalancesForSplit(ctx, createdSplit, createdParticipants); err != nil {
+		return nil, err
+	}
 
 	Logger.Debug().
 		Str("operation", "CreateSplit").
@@ -117,7 +126,6 @@ func (s *SplitService) CreateSplit(ctx context.Context, userId uuid.UUID, input 
 		Int("participants", len(input.Participants)).
 		Msg("Split created successfully")
 
-	createdSplit.Participants = createdParticipants
 	return s.splitToDto(createdSplit), nil
 }
 
@@ -179,123 +187,6 @@ func (s *SplitService) GetMySplits(ctx context.Context, userId uuid.UUID, pagina
 	}, nil
 }
 
-func (s *SplitService) DeleteSplit(ctx context.Context, userId, splitId uuid.UUID) error {
-	split, dbErr := s.repo.GetSplitById(ctx, splitId)
-	if dbErr != nil {
-		return dbErr
-	}
-
-	if split.CreatedByID != userId {
-		return fiber.NewError(fiber.StatusNotFound, Errors.ErrSplitNotFound)
-	}
-
-	if split.IsFinalized {
-		return fiber.NewError(fiber.StatusBadRequest, Errors.ErrCannotDeleteFinalizedSplit)
-	}
-
-	err := s.repo.DeleteSplit(ctx, splitId)
-	if err != nil {
-		return err
-	}
-
-	Logger.Debug().
-		Str("operation", "DeleteSplit").
-		Str("userId", userId.String()).
-		Str("splitId", splitId.String()).
-		Msg("Split deleted successfully")
-
-	return nil
-}
-
-func (s *SplitService) AddParticipant(ctx context.Context, userId, splitId uuid.UUID, input Dtos.AddParticipantInput) (*Dtos.ParticipantResult, error) {
-	participantUUID, err := Helpers.ParseUUID(input.UserID)
-	if err != nil {
-		return nil, err
-	}
-
-	split, dbErr := s.repo.GetSplitById(ctx, splitId)
-	if dbErr != nil {
-		return nil, dbErr
-	}
-
-	if split.CreatedByID != userId {
-		return nil, fiber.NewError(fiber.StatusNotFound, Errors.ErrSplitNotFound)
-	}
-
-	if split.IsFinalized {
-		return nil, fiber.NewError(fiber.StatusBadRequest, Errors.ErrSplitAlreadyFinalized)
-	}
-
-	participant := &Domain.SplitParticipant{
-		SplitID:     splitId,
-		UserID:      participantUUID,
-		ShareAmount: input.ShareAmount,
-		Currency:    split.Currency,
-		IsSettled:   false,
-	}
-
-	created, pErr := s.repo.AddParticipant(ctx, participant)
-	if pErr != nil {
-		return nil, pErr
-	}
-
-	return &Dtos.ParticipantResult{
-		UserID:      created.UserID.String(),
-		UserName:    created.User.Name,
-		ShareAmount: created.ShareAmount,
-		Currency:    string(created.Currency),
-		IsSettled:   created.IsSettled,
-	}, nil
-}
-
-func (s *SplitService) UpdateParticipant(ctx context.Context, userId, splitId, participantUserId uuid.UUID, input Dtos.UpdateParticipantInput) error {
-	split, dbErr := s.repo.GetSplitById(ctx, splitId)
-	if dbErr != nil {
-		return dbErr
-	}
-
-	if split.CreatedByID != userId {
-		return fiber.NewError(fiber.StatusNotFound, Errors.ErrSplitNotFound)
-	}
-
-	participant, pErr := s.repo.GetParticipant(ctx, splitId, participantUserId)
-	if pErr != nil {
-		return pErr
-	}
-
-	participant.ShareAmount = input.ShareAmount
-	if input.IsSettled != nil {
-		participant.IsSettled = *input.IsSettled
-	}
-
-	return s.repo.UpdateParticipant(ctx, participant)
-}
-
-func (s *SplitService) FinalizeSplit(ctx context.Context, userId, splitId uuid.UUID) error {
-	split, dbErr := s.repo.GetSplitWithParticipants(ctx, splitId)
-	if dbErr != nil {
-		return dbErr
-	}
-
-	if split.CreatedByID != userId {
-		return fiber.NewError(fiber.StatusNotFound, Errors.ErrSplitNotFound)
-	}
-
-	if split.IsFinalized {
-		return fiber.NewError(fiber.StatusBadRequest, Errors.ErrSplitAlreadyFinalized)
-	}
-
-	if err := s.repo.FinalizeSplit(ctx, splitId); err != nil {
-		return err
-	}
-
-	if err := s.balanceRepo.UpdateBalancesForSplit(ctx, split, split.Participants); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (s *SplitService) ReverseSplit(ctx context.Context, userId, splitId uuid.UUID) (*Dtos.SplitResult, error) {
 	originalSplit, dbErr := s.repo.GetSplitWithParticipants(ctx, splitId)
 	if dbErr != nil {
@@ -304,10 +195,6 @@ func (s *SplitService) ReverseSplit(ctx context.Context, userId, splitId uuid.UU
 
 	if originalSplit.CreatedByID != userId {
 		return nil, fiber.NewError(fiber.StatusNotFound, Errors.ErrSplitNotFound)
-	}
-
-	if !originalSplit.IsFinalized {
-		return nil, fiber.NewError(fiber.StatusBadRequest, Errors.ErrSplitNotFinalized)
 	}
 
 	isReversed, err := s.repo.IsSplitReversed(ctx, splitId)
@@ -344,6 +231,9 @@ func (s *SplitService) ReverseSplit(ctx context.Context, userId, splitId uuid.UU
 	}
 
 	createdReversal.Participants = createdParticipants
+	if err := s.balanceRepo.UpdateBalancesForSplit(ctx, createdReversal, createdParticipants); err != nil {
+		return nil, err
+	}
 	return s.splitToDto(createdReversal), nil
 }
 
@@ -375,7 +265,6 @@ func (s *SplitService) splitToDto(split *Domain.Split) *Dtos.SplitResult {
 		GroupID:       groupIdStr,
 		CreatedByID:   split.CreatedByID.String(),
 		CreatedAt:     split.CreatedAt,
-		IsFinalized:   split.IsFinalized,
 		SimplifyDebts: split.SimplifyDebts,
 		Participants:  participants,
 	}
@@ -395,4 +284,17 @@ func (s *SplitService) isUserAuthorizedForSplit(ctx context.Context, split *Doma
 		return memberErr == nil
 	}
 	return false
+}
+
+func (s *SplitService) validateSplitAmountMatchesShares(totalAmount int64, participants []Domain.SplitParticipant) error {
+	var participantTotal int64
+	for _, p := range participants {
+		participantTotal += p.ShareAmount
+	}
+
+	if participantTotal != totalAmount {
+		return fiber.NewError(fiber.StatusBadRequest, Errors.ErrInvalidSplitAmount)
+	}
+
+	return nil
 }

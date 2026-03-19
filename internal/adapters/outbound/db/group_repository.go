@@ -31,6 +31,7 @@ func (repo *GroupRepository) CreateGroup(ctx context.Context, name string, owner
 
 	group := Domain.Group{
 		Name:          name,
+		OwnerID:       ownerId,
 		SimplifyDebts: simplifyDebts,
 	}
 	if err := tx.Create(&group).Error; err != nil {
@@ -109,7 +110,7 @@ func (repo *GroupRepository) GetGroupWithMembers(ctx context.Context, groupId uu
 
 func (repo *GroupRepository) DeleteGroup(ctx context.Context, groupId uuid.UUID) error {
 	var activeSplitCount int64
-	if err := repo.db.DB.WithContext(ctx).Model(&Domain.Split{}).Where("group_id = ? AND is_finalized = ?", groupId, false).Count(&activeSplitCount).Error; err != nil {
+	if err := repo.db.DB.WithContext(ctx).Model(&Domain.Split{}).Where("group_id = ?", groupId).Count(&activeSplitCount).Error; err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
 	}
 	if activeSplitCount > 0 {

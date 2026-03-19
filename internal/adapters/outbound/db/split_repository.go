@@ -88,40 +88,6 @@ func (repo *SplitRepository) GetSplitsByUserId(ctx context.Context, userId uuid.
 	return splits, total, nil
 }
 
-func (repo *SplitRepository) DeleteSplit(ctx context.Context, splitId uuid.UUID) error {
-	tx := repo.db.DB.WithContext(ctx).Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-
-	if err := tx.Delete(&Domain.SplitParticipant{}, "split_id = ?", splitId).Error; err != nil {
-		tx.Rollback()
-		return fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
-	}
-
-	if err := tx.Delete(&Domain.ReversalSplit{}, "original_split_id = ? OR reversal_split_id = ?", splitId, splitId).Error; err != nil {
-		tx.Rollback()
-		return fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
-	}
-
-	result := tx.Delete(&Domain.Split{}, "id = ?", splitId)
-	if result.Error != nil {
-		tx.Rollback()
-		return fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
-	}
-	if result.RowsAffected == 0 {
-		tx.Rollback()
-		return fiber.NewError(fiber.StatusNotFound, Errors.ErrSplitNotFound)
-	}
-
-	if err := tx.Commit().Error; err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
-	}
-	return nil
-}
-
 func (repo *SplitRepository) IsSplitReversed(ctx context.Context, splitId uuid.UUID) (bool, error) {
 	var count int64
 	if err := repo.db.DB.WithContext(ctx).Model(&Domain.ReversalSplit{}).Where("original_split_id = ?", splitId).Count(&count).Error; err != nil {
@@ -130,65 +96,12 @@ func (repo *SplitRepository) IsSplitReversed(ctx context.Context, splitId uuid.U
 	return count > 0, nil
 }
 
-func (repo *SplitRepository) AddParticipant(ctx context.Context, participant *Domain.SplitParticipant) (*Domain.SplitParticipant, error) {
-	tx := repo.db.DB.WithContext(ctx).Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-
-	var existing Domain.SplitParticipant
-	err := tx.Raw("SELECT * FROM split_participants WHERE split_id = ? AND user_id = ? FOR UPDATE", participant.SplitID, participant.UserID).Scan(&existing).Error
-	if err == nil && existing.Id != (uuid.UUID{}) {
-		tx.Rollback()
-		return nil, fiber.NewError(fiber.StatusConflict, Errors.ErrParticipantExists)
-	}
-
-	if err := tx.Create(participant).Error; err != nil {
-		tx.Rollback()
-		return nil, fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
-	}
-
-	if err := tx.Preload("User").First(participant, "id = ?", participant.Id).Error; err != nil {
-		tx.Rollback()
-		return nil, fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
-	}
-
-	if err := tx.Commit().Error; err != nil {
-		return nil, fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
-	}
-
-	return participant, nil
-}
-
 func (repo *SplitRepository) GetParticipant(ctx context.Context, splitId, userId uuid.UUID) (*Domain.SplitParticipant, error) {
 	var participant Domain.SplitParticipant
 	if err := repo.db.DB.WithContext(ctx).Preload("User").Where("split_id = ? AND user_id = ?", splitId, userId).First(&participant).Error; err != nil {
 		return nil, fiber.NewError(fiber.StatusNotFound, Errors.ErrParticipantNotFound)
 	}
 	return &participant, nil
-}
-
-func (repo *SplitRepository) UpdateParticipant(ctx context.Context, participant *Domain.SplitParticipant) error {
-	if err := repo.db.DB.WithContext(ctx).Save(participant).Error; err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
-	}
-	return nil
-}
-
-func (repo *SplitRepository) FinalizeSplit(ctx context.Context, splitId uuid.UUID) error {
-	result := repo.db.DB.WithContext(ctx).Model(&Domain.Split{}).
-		Where("id = ? AND is_finalized = ?", splitId, false).
-		Update("is_finalized", true)
-
-	if result.Error != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
-	}
-	if result.RowsAffected == 0 {
-		return fiber.NewError(fiber.StatusBadRequest, Errors.ErrSplitAlreadyFinalized)
-	}
-	return nil
 }
 
 func (repo *SplitRepository) CreateReversalSplitWithParticipants(ctx context.Context, originalSplitId uuid.UUID, reversalSplit *Domain.Split, participants []Domain.SplitParticipant) (*Domain.Split, []Domain.SplitParticipant, error) {
@@ -277,7 +190,7 @@ func (repo *SplitRepository) HasPendingSplitsInGroup(ctx context.Context, userId
 	err := repo.db.DB.WithContext(ctx).
 		Model(&Domain.Split{}).
 		Joins("JOIN split_participants ON split_participants.split_id = splits.id").
-		Where("splits.group_id = ? AND split_participants.user_id = ? AND splits.is_finalized = ?", groupId, userId, false).
+		Where("splits.group_id = ? AND split_participants.user_id = ?", groupId, userId).
 		Count(&count).Error
 
 	if err != nil {

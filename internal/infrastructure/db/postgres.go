@@ -55,6 +55,9 @@ func CreatePostgresDbWithConfig(config DBConfig) (*PostgresDB, error) {
 	sqlDB.SetMaxIdleConns(config.MaxIdleConns)
 	sqlDB.SetConnMaxLifetime(config.ConnMaxLife)
 
-	MigrateDB(db)
+	if err := MigrateDB(db); err != nil {
+		return nil, err
+	}
+
 	return &PostgresDB{DB: db}, nil
 }

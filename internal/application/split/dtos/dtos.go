@@ -18,16 +18,6 @@ type CreateSplitInput struct {
 	Participants  []ParticipantInput
 }
 
-type AddParticipantInput struct {
-	UserID      string
-	ShareAmount int64
-}
-
-type UpdateParticipantInput struct {
-	ShareAmount int64
-	IsSettled   *bool
-}
-
 type ParticipantResult struct {
 	UserID      string
 	UserName    string
@@ -46,7 +36,6 @@ type SplitResult struct {
 	GroupID       string
 	CreatedByID   string
 	CreatedAt     time.Time
-	IsFinalized   bool
 	SimplifyDebts *bool
 	Participants  []ParticipantResult
 }

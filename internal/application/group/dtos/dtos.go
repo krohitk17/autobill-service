@@ -45,7 +45,3 @@ type AddMemberInput struct {
 	UserID string
 	Role   string
 }
-
-type UpdateMemberRoleInput struct {
-	Role string
-}

@@ -15,13 +15,3 @@ type CreateSplitRequestDto struct {
 	SimplifyDebts *bool              `json:"simplify_debts"`
 	Participants  []ParticipantInput `json:"participants" validate:"required,min=1"`
 }
-
-type AddParticipantRequestDto struct {
-	UserID      string `json:"user_id" validate:"required"`
-	ShareAmount int64  `json:"share_amount"`
-}
-
-type UpdateParticipantRequestDto struct {
-	ShareAmount int64 `json:"share_amount" validate:"required,gt=0"`
-	IsSettled   *bool `json:"is_settled"`
-}

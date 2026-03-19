@@ -12,7 +12,6 @@ type Split struct {
 	TotalAmount   int64             `gorm:"not null" json:"total_amount"`
 	Currency      Currency          `gorm:"type:varchar(10);not null" json:"currency"`
 	Description   string            `gorm:"type:varchar(500)" json:"description"`
-	IsFinalized   bool              `gorm:"default:false" json:"is_finalized"`
 	SimplifyDebts *bool             `gorm:"default:null" json:"simplify_debts"`
 
 	GroupID *uuid.UUID `gorm:"type:uuid;index" json:"group_id,omitempty"`

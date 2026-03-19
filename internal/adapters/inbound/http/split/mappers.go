@@ -30,20 +30,6 @@ func ToCreateSplitInput(dto *AdapterDtos.CreateSplitRequestDto) ServiceDtos.Crea
 	}
 }
 
-func ToAddParticipantInput(dto *AdapterDtos.AddParticipantRequestDto) ServiceDtos.AddParticipantInput {
-	return ServiceDtos.AddParticipantInput{
-		UserID:      dto.UserID,
-		ShareAmount: dto.ShareAmount,
-	}
-}
-
-func ToUpdateParticipantInput(dto *AdapterDtos.UpdateParticipantRequestDto) ServiceDtos.UpdateParticipantInput {
-	return ServiceDtos.UpdateParticipantInput{
-		ShareAmount: dto.ShareAmount,
-		IsSettled:   dto.IsSettled,
-	}
-}
-
 func ToParticipantResponseDto(result *ServiceDtos.ParticipantResult) AdapterDtos.ParticipantResponseDto {
 	return AdapterDtos.ParticipantResponseDto{
 		UserID:      result.UserID,
@@ -73,7 +59,6 @@ func ToSplitResponseDto(result *ServiceDtos.SplitResult) AdapterDtos.SplitRespon
 		GroupID:       result.GroupID,
 		CreatedByID:   result.CreatedByID,
 		CreatedAt:     result.CreatedAt,
-		IsFinalized:   result.IsFinalized,
 		SimplifyDebts: result.SimplifyDebts,
 		Participants:  ToParticipantResponseDtoList(result.Participants),
 	}

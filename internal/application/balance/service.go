@@ -95,7 +95,7 @@ func (s *BalanceService) RecalculateGroupBalance(ctx context.Context, userId, gr
 		return nil, groupErr
 	}
 
-	splits, splitErr := s.repo.GetFinalizedSplitsWithParticipants(ctx, groupId)
+	splits, splitErr := s.repo.GetSplitsWithParticipants(ctx, groupId)
 	if splitErr != nil {
 		return nil, splitErr
 	}
