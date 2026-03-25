@@ -17,9 +17,11 @@ const (
 
 type SocialRepositoryPort interface {
 	GetFriendRequestsList(ctx context.Context, userId uuid.UUID, requestType FriendRequestType, limit, offset int) ([]*Domain.FriendRequest, int64, error)
-	CreateFriendRequest(ctx context.Context, senderId uuid.UUID, receiverId uuid.UUID) (*Domain.FriendRequest, error)
+	GetFriendRequestByIdempotencyKey(ctx context.Context, idempotencyKey string) (*Domain.FriendRequest, error)
+	CreateFriendRequest(ctx context.Context, senderId uuid.UUID, receiverId uuid.UUID, idempotencyKey *string) (*Domain.FriendRequest, error)
 	AcceptFriendRequest(ctx context.Context, receiverId uuid.UUID, requestId uuid.UUID) error
 	RejectFriendRequest(ctx context.Context, receiverId uuid.UUID, requestId uuid.UUID) error
+	CancelFriendRequest(ctx context.Context, senderId uuid.UUID, requestId uuid.UUID) error
 	CheckExistingRequest(ctx context.Context, senderId, receiverId uuid.UUID) (bool, error)
 	CheckFriendship(ctx context.Context, userId, friendId uuid.UUID) (bool, error)
 

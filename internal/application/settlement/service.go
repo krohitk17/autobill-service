@@ -38,7 +38,7 @@ func (s *SettlementService) CreateSettlement(ctx context.Context, userId uuid.UU
 				Str("idempotencyKey", input.IdempotencyKey).
 				Str("settlementId", existing.Id.String()).
 				Msg("Returning existing settlement for idempotency key")
-			return s.settlementToDto(existing, false), nil
+			return s.settlementToDto(existing, existing.Confirmed), nil
 		}
 	}
 
@@ -69,9 +69,17 @@ func (s *SettlementService) CreateSettlement(ctx context.Context, userId uuid.UU
 		return nil, fiber.NewError(fiber.StatusBadRequest, Errors.ErrCurrencyMismatch)
 	}
 
-	_, participantErr := s.splitRepo.GetParticipant(ctx, splitUUID, userId)
+	payerParticipant, participantErr := s.splitRepo.GetParticipant(ctx, splitUUID, userId)
 	if participantErr != nil {
 		return nil, participantErr
+	}
+
+	outstanding := payerParticipant.ShareAmount - payerParticipant.SettledAmount
+	if outstanding <= 0 {
+		return nil, fiber.NewError(fiber.StatusBadRequest, Errors.ErrSettlementAlreadyConfirmed)
+	}
+	if input.Amount > outstanding {
+		return nil, fiber.NewError(fiber.StatusBadRequest, Errors.ErrInvalidSettlementAmount)
 	}
 
 	_, payeeParticipantErr := s.splitRepo.GetParticipant(ctx, splitUUID, payeeUUID)
@@ -91,6 +99,7 @@ func (s *SettlementService) CreateSettlement(ctx context.Context, userId uuid.UU
 		Amount:         input.Amount,
 		Currency:       Domain.Currency(input.Currency),
 		Date:           time.Now(),
+		Confirmed:      false,
 		IdempotencyKey: idempotencyKeyPtr,
 	}
 
@@ -108,7 +117,7 @@ func (s *SettlementService) CreateSettlement(ctx context.Context, userId uuid.UU
 		Str("currency", input.Currency).
 		Msg("Settlement created successfully")
 
-	return s.settlementToDto(created, false), nil
+	return s.settlementToDto(created, created.Confirmed), nil
 }
 
 func (s *SettlementService) GetPendingSettlements(ctx context.Context, userId uuid.UUID, pagination Helpers.PaginationParams) (*Dtos.SettlementListResult, error) {
@@ -120,7 +129,7 @@ func (s *SettlementService) GetPendingSettlements(ctx context.Context, userId uu
 
 	results := make([]Dtos.SettlementResult, len(settlements))
 	for i, settlement := range settlements {
-		results[i] = *s.settlementToDto(&settlement, false)
+		results[i] = *s.settlementToDto(&settlement, settlement.Confirmed)
 	}
 
 	return &Dtos.SettlementListResult{

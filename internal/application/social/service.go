@@ -66,7 +66,17 @@ func (s *SocialService) GetFriendRequestsList(ctx context.Context, userID uuid.U
 	}, nil
 }
 
-func (s *SocialService) SendFriendRequest(ctx context.Context, senderId, receiverId uuid.UUID) (*Dtos.FriendRequestResult, error) {
+func (s *SocialService) SendFriendRequest(ctx context.Context, senderId, receiverId uuid.UUID, idempotencyKey string) (*Dtos.FriendRequestResult, error) {
+	if idempotencyKey != "" {
+		existing, err := s.db.GetFriendRequestByIdempotencyKey(ctx, idempotencyKey)
+		if err == nil && existing != nil {
+			if existing.SenderId != senderId {
+				return nil, fiber.NewError(fiber.StatusConflict, Errors.ErrIdempotencyKeyConflict)
+			}
+			return &Dtos.FriendRequestResult{RequestId: existing.Id.String()}, nil
+		}
+	}
+
 	if senderId == receiverId {
 		return nil, fiber.NewError(fiber.StatusBadRequest, Errors.ErrCannotSendRequestToSelf)
 	}
@@ -87,7 +97,12 @@ func (s *SocialService) SendFriendRequest(ctx context.Context, senderId, receive
 		return nil, fiber.NewError(fiber.StatusBadRequest, Errors.ErrAlreadyFriends)
 	}
 
-	request, err := s.db.CreateFriendRequest(ctx, senderId, receiverId)
+	var idempotencyKeyPtr *string
+	if idempotencyKey != "" {
+		idempotencyKeyPtr = &idempotencyKey
+	}
+
+	request, err := s.db.CreateFriendRequest(ctx, senderId, receiverId, idempotencyKeyPtr)
 	if err != nil {
 		return nil, err
 	}
@@ -108,6 +123,10 @@ func (s *SocialService) AcceptFriendRequest(ctx context.Context, senderId, reque
 
 func (s *SocialService) RejectFriendRequest(ctx context.Context, senderId, requestId uuid.UUID) error {
 	return s.db.RejectFriendRequest(ctx, senderId, requestId)
+}
+
+func (s *SocialService) CancelFriendRequest(ctx context.Context, senderId, requestId uuid.UUID) error {
+	return s.db.CancelFriendRequest(ctx, senderId, requestId)
 }
 
 func (s *SocialService) GetFriendsList(ctx context.Context, userID uuid.UUID, pagination Helpers.PaginationParams) (*Dtos.FriendsListResult, error) {

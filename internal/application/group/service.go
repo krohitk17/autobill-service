@@ -213,6 +213,26 @@ func (s *GroupService) UpdateMemberRole(ctx context.Context, userId, groupId, me
 	return s.repo.UpdateMemberRole(ctx, groupId, memberId, groupRole)
 }
 
+func (s *GroupService) TransferOwnership(ctx context.Context, userId, groupId, newOwnerId uuid.UUID) error {
+	isOwner, ownerErr := s.repo.IsGroupOwner(ctx, groupId, userId)
+	if ownerErr != nil {
+		return ownerErr
+	}
+	if !isOwner {
+		return fiber.NewError(fiber.StatusNotFound, Errors.ErrGroupNotFound)
+	}
+
+	if userId == newOwnerId {
+		return fiber.NewError(fiber.StatusBadRequest, Errors.ErrCannotAssignOwnerRole)
+	}
+
+	if _, err := s.repo.GetMembership(ctx, groupId, newOwnerId); err != nil {
+		return err
+	}
+
+	return s.repo.TransferOwnership(ctx, groupId, userId, newOwnerId)
+}
+
 func (s *GroupService) RemoveMember(ctx context.Context, userId, groupId, memberId uuid.UUID) error {
 	isAdmin, adminErr := s.repo.IsGroupAdmin(ctx, groupId, userId)
 	if adminErr != nil {

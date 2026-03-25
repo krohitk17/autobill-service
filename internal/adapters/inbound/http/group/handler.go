@@ -204,6 +204,39 @@ func (h *GroupHandler) RemoveMemberHandler(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
+func (h *GroupHandler) TransferOwnershipHandler(c *fiber.Ctx) error {
+	ctx := Middlewares.GetContext(c)
+	userId, err := Helpers.GetUserIdFromContext(c)
+	if err != nil {
+		return err
+	}
+	groupId, err := Helpers.ParseUUID(c.Params("groupId"))
+	if err != nil {
+		return err
+	}
+
+	reqBody := new(GroupDtos.TransferOwnershipRequestDto)
+	if err := c.BodyParser(reqBody); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, Errors.ErrInvalidRequestBody)
+	}
+
+	if err := Helpers.ValidateRequest(reqBody); err != nil {
+		return err
+	}
+
+	newOwnerId, err := Helpers.ParseUUID(reqBody.NewOwnerID)
+	if err != nil {
+		return err
+	}
+
+	err = h.service.TransferOwnership(ctx, userId, groupId, newOwnerId)
+	if err != nil {
+		return err
+	}
+
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
 func (h *GroupHandler) LeaveGroupHandler(c *fiber.Ctx) error {
 	ctx := Middlewares.GetContext(c)
 	userId, err := Helpers.GetUserIdFromContext(c)

@@ -9,6 +9,7 @@ import (
 
 type BalanceUseCase interface {
 	GetMyBalance(ctx context.Context, userId uuid.UUID) (*Dtos.UserBalanceResult, error)
+	GetBalanceWithUser(ctx context.Context, userId, otherUserId uuid.UUID) (*Dtos.UserBalanceResult, error)
 
 	GetGroupBalance(ctx context.Context, userId, groupId uuid.UUID) (*Dtos.GroupBalanceResult, error)
 	RecalculateGroupBalance(ctx context.Context, userId, groupId uuid.UUID) (*Dtos.GroupBalanceResult, error)

@@ -10,17 +10,19 @@ import (
 var logger zerolog.Logger
 
 func init() {
+	Configure("development", "info")
+}
+
+func Configure(environment, level string) {
 	zerolog.TimeFieldFormat = time.RFC3339
 
-	env := os.Getenv("ENV")
-	if env == "" || env == "development" {
+	if environment == "" || environment == "development" {
 		output := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
 		logger = zerolog.New(output).With().Timestamp().Caller().Logger()
 	} else {
 		logger = zerolog.New(os.Stdout).With().Timestamp().Caller().Logger()
 	}
 
-	level := os.Getenv("LOG_LEVEL")
 	switch level {
 	case "debug":
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)

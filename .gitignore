@@ -1,2 +1,7 @@
+*/DS_Store
+.vscode
+
 .env
+.env.test
+.env.docker
 app

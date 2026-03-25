@@ -181,6 +181,48 @@ func (repo *GroupRepository) UpdateMemberRole(ctx context.Context, groupId, user
 	return nil
 }
 
+func (repo *GroupRepository) TransferOwnership(ctx context.Context, groupId, currentOwnerId, newOwnerId uuid.UUID) error {
+	tx := repo.db.DB.WithContext(ctx).Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	var currentOwnerMembership Domain.GroupMembership
+	if err := tx.Where("group_id = ? AND user_id = ?", groupId, currentOwnerId).First(&currentOwnerMembership).Error; err != nil {
+		tx.Rollback()
+		return fiber.NewError(fiber.StatusNotFound, Errors.ErrNotGroupMember)
+	}
+
+	var newOwnerMembership Domain.GroupMembership
+	if err := tx.Where("group_id = ? AND user_id = ?", groupId, newOwnerId).First(&newOwnerMembership).Error; err != nil {
+		tx.Rollback()
+		return fiber.NewError(fiber.StatusNotFound, Errors.ErrNotGroupMember)
+	}
+
+	if err := tx.Model(&Domain.Group{}).Where("id = ?", groupId).Update("owner_id", newOwnerId).Error; err != nil {
+		tx.Rollback()
+		return fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
+	}
+
+	if err := tx.Model(&Domain.GroupMembership{}).Where("group_id = ? AND user_id = ?", groupId, currentOwnerId).Update("role", Domain.GroupRoleAdmin).Error; err != nil {
+		tx.Rollback()
+		return fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
+	}
+
+	if err := tx.Model(&Domain.GroupMembership{}).Where("group_id = ? AND user_id = ?", groupId, newOwnerId).Update("role", Domain.GroupRoleOwner).Error; err != nil {
+		tx.Rollback()
+		return fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
+	}
+
+	return nil
+}
+
 func (repo *GroupRepository) RemoveMember(ctx context.Context, groupId, userId uuid.UUID) error {
 	result := repo.db.DB.WithContext(ctx).Delete(&Domain.GroupMembership{}, "group_id = ? AND user_id = ?", groupId, userId)
 	if result.Error != nil {

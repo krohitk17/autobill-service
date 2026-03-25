@@ -18,3 +18,7 @@ type AddMemberRequestDto struct {
 type UpdateMemberRoleRequestDto struct {
 	Role string `json:"role" validate:"required,oneof=OWNER ADMIN MEMBER"`
 }
+
+type TransferOwnershipRequestDto struct {
+	NewOwnerID string `json:"new_owner_id" validate:"required"`
+}

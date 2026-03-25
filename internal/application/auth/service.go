@@ -6,6 +6,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	Dtos "autobill-service/internal/application/auth/dtos"
+	Domain "autobill-service/internal/domain"
 	RepositoryPorts "autobill-service/internal/ports/outbound/db"
 	Errors "autobill-service/pkg/errors"
 	JWTUtil "autobill-service/pkg/jwt"
@@ -102,7 +103,7 @@ func (service *AuthService) RefreshToken(ctx context.Context, input Dtos.Refresh
 		return nil, fiber.NewError(fiber.StatusUnauthorized, Errors.ErrRefreshTokenRevoked)
 	}
 
-	if storedToken.User.Status != "active" {
+	if storedToken.User.Status != Domain.AccountActive {
 		return nil, fiber.NewError(fiber.StatusUnauthorized, Errors.ErrUnauthorized)
 	}
 

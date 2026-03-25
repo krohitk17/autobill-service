@@ -32,6 +32,7 @@ func (r GroupRouter) RegisterRoutes() {
 	r.App.Post("/:groupId/leave", r.handler.LeaveGroupHandler).Name("leaveGroup")
 
 	r.App.Post("/:groupId/members", r.handler.AddMemberHandler).Name("addMember")
+	r.App.Post("/:groupId/transfer-ownership", r.handler.TransferOwnershipHandler).Name("transferOwnership")
 	r.App.Patch("/:groupId/members/:userId/role", r.handler.UpdateMemberRoleHandler).Name("updateMemberRole")
 	r.App.Delete("/:groupId/members/:userId", r.handler.RemoveMemberHandler).Name("removeMember")
 }

@@ -44,164 +44,149 @@ enum Currency {
 }
 
 ' ============================================
+' BASE MODEL
+' ============================================
+class BaseModel {
+    -Id: UUID
+    -CreatedAt: time.Time
+    -UpdatedAt: time.Time
+    -DeletedAt: gorm.DeletedAt
+}
+
+' ============================================
 ' DOMAIN ENTITIES
 ' ============================================
 class User {
-    -Id: UUID
     -Email: string
     -Name: string
     -Status: AccountStatus
-    -CreatedAt: time.Time
-    -UpdatedAt: time.Time
 }
 
 class Credential {
-    -Id: UUID
     -UserID: UUID
     -PasswordHash: string
-    -CreatedAt: time.Time
-    -UpdatedAt: time.Time
+}
+
+class RefreshToken {
+    -UserID: UUID
+    -Token: string
+    -ExpiresAt: time.Time
+    -Revoked: bool
 }
 
 class FriendRequest {
-    -Id: UUID
     -SenderId: UUID
     -ReceiverId: UUID
     -Status: FriendStatus
-    -CreatedAt: time.Time
-    -UpdatedAt: time.Time
+    -IdempotencyKey: *string
 }
 
 class Friendship {
-    -Id: UUID
     -UserID: UUID
     -FriendID: UUID
-    -CreatedAt: time.Time
 }
 
 class Group {
-    -Id: UUID
     -Name: string
+    -OwnerID: UUID
     -SimplifyDebts: bool
-    -CreatedAt: time.Time
-    -UpdatedAt: time.Time
 }
 
 class GroupMembership {
-    -Id: UUID
-    -GroupID: UUID
     -UserID: UUID
+    -GroupID: UUID
     -Role: GroupRole
-    -CreatedAt: time.Time
 }
 
 class Split {
-    -Id: UUID
     -Type: SplitType
     -DivisionType: SplitDivisionType
     -TotalAmount: int64
     -Currency: Currency
     -Description: string
-    -IsFinalized: bool
     -SimplifyDebts: *bool
+    -IdempotencyKey: *string
     -GroupID: *UUID
     -CreatedByID: UUID
-    -CreatedAt: time.Time
-    -UpdatedAt: time.Time
 }
 
 class SplitParticipant {
-    -Id: UUID
     -SplitID: UUID
     -UserID: UUID
+    -SettledAmount: int64
     -ShareAmount: int64
     -Currency: Currency
     -IsSettled: bool
-    -CreatedAt: time.Time
-    -UpdatedAt: time.Time
 }
 
 class Settlement {
-    -Id: UUID
     -SplitID: UUID
     -PayerID: UUID
     -PayeeID: UUID
     -Amount: int64
     -Currency: Currency
+    -Confirmed: bool
     -Date: time.Time
-    -CreatedAt: time.Time
-}
-
-class ReversalSplit {
-    -Id: UUID
-    -OriginalSplitID: UUID
-    -ReversalSplitID: UUID
-    -Reason: string
-    -CreatedAt: time.Time
+    -IdempotencyKey: *string
 }
 
 class UserBalance {
-    -Id: UUID
     -UserID: UUID
     -OtherUserID: UUID
     -NetAmount: int64
     -Currency: Currency
-    -CreatedAt: time.Time
-    -UpdatedAt: time.Time
 }
 
 class GroupBalance {
-    -Id: UUID
     -UserID: UUID
     -GroupID: UUID
     -NetAmount: int64
     -Currency: Currency
-    -CreatedAt: time.Time
-    -UpdatedAt: time.Time
-}
-
-class AuditLog {
-    -Id: UUID
-    -UserID: UUID
-    -Action: string
-    -Timestamp: time.Time
-    -CreatedAt: time.Time
 }
 
 ' ============================================
 ' RELATIONSHIPS
 ' ============================================
 
+' Base model embedding
+BaseModel <|-- User
+BaseModel <|-- Credential
+BaseModel <|-- RefreshToken
+BaseModel <|-- FriendRequest
+BaseModel <|-- Friendship
+BaseModel <|-- Group
+BaseModel <|-- GroupMembership
+BaseModel <|-- Split
+BaseModel <|-- SplitParticipant
+BaseModel <|-- Settlement
+BaseModel <|-- UserBalance
+BaseModel <|-- GroupBalance
+
 ' User relationships
 User "1" -- "1" Credential : has >
+User "1" -- "*" RefreshToken : has >
 User "1" -- "*" FriendRequest : sends >
 User "1" -- "*" FriendRequest : receives >
 User "1" -- "*" Friendship : has >
+User "1" -- "*" Friendship : friend of >
 User "1" -- "*" GroupMembership : has >
+User "1" -- "*" Group : owns >
 User "1" -- "*" SplitParticipant : participates >
 User "1" -- "*" Split : creates >
 User "1" -- "*" Settlement : pays >
 User "1" -- "*" Settlement : receives >
-User "1" -- "*" UserBalance : has >
+User "1" -- "*" UserBalance : owns balance >
+User "1" -- "*" UserBalance : counterparty >
 User "1" -- "*" GroupBalance : has >
-User "1" -- "*" AuditLog : generates >
-
-' Friendship (self-referential through User)
-Friendship "*" -- "1" User : friend >
 
 ' Group relationships
 Group "1" -- "*" GroupMembership : contains >
-Group "1" -- "*" Split : has >
+Group "0..1" -- "0..*" Split : has >
 Group "1" -- "*" GroupBalance : tracks >
 
 ' Split relationships
 Split "1" -- "*" SplitParticipant : includes >
 Split "1" -- "*" Settlement : settles >
-Split "1" -- "0..1" ReversalSplit : reversed by >
-Split "1" -- "0..1" ReversalSplit : reverses >
-
-' Balance relationships
-UserBalance "*" -- "1" User : with other >
 
 ' Enum usage
 User ..> AccountStatus : uses

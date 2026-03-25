@@ -8,14 +8,15 @@ type ParticipantInput struct {
 }
 
 type CreateSplitInput struct {
-	Type          string
-	DivisionType  string
-	TotalAmount   int64
-	Currency      string
-	Description   string
-	GroupID       string
-	SimplifyDebts *bool
-	Participants  []ParticipantInput
+	Type           string
+	DivisionType   string
+	TotalAmount    int64
+	Currency       string
+	Description    string
+	GroupID        string
+	SimplifyDebts  *bool
+	IdempotencyKey string
+	Participants   []ParticipantInput
 }
 
 type ParticipantResult struct {

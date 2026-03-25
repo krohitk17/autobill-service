@@ -12,7 +12,6 @@ type AuthUseCase interface {
 	AuthenticateUser(ctx context.Context, input Dtos.LoginInput) (*Dtos.AuthResult, error)
 	RefreshToken(ctx context.Context, input Dtos.RefreshTokenInput) (*Dtos.AuthResult, error)
 	UpdatePassword(ctx context.Context, id uuid.UUID, currentPassword, newPassword string) error
-
 	Logout(ctx context.Context, refreshToken string) error
 	LogoutAll(ctx context.Context, userId uuid.UUID) error
 	DeactivateUser(ctx context.Context, id uuid.UUID, password string) error

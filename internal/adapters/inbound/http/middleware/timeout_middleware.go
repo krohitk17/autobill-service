@@ -12,13 +12,6 @@ type TimeoutConfig struct {
 	Message string
 }
 
-func DefaultTimeoutConfig() TimeoutConfig {
-	return TimeoutConfig{
-		Timeout: 30 * time.Second,
-		Message: "Request timeout",
-	}
-}
-
 func TimeoutMiddleware(config TimeoutConfig) fiber.Handler {
 	return timeout.NewWithContext(func(c *fiber.Ctx) error {
 		return c.Next()

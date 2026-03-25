@@ -1,8 +1,9 @@
 package RepositoryAdapters
 
 import (
-	"github.com/gofiber/fiber/v2"
 	"context"
+
+	"github.com/gofiber/fiber/v2"
 
 	Domain "autobill-service/internal/domain"
 	DB "autobill-service/internal/infrastructure/db"
@@ -46,11 +47,20 @@ func (repo *SocialRepository) GetFriendRequestsList(ctx context.Context, userId 
 	return requests, total, nil
 }
 
-func (repo *SocialRepository) CreateFriendRequest(ctx context.Context, senderId uuid.UUID, receiverId uuid.UUID) (*Domain.FriendRequest, error) {
+func (repo *SocialRepository) GetFriendRequestByIdempotencyKey(ctx context.Context, idempotencyKey string) (*Domain.FriendRequest, error) {
+	var request Domain.FriendRequest
+	if err := repo.db.DB.WithContext(ctx).First(&request, "idempotency_key = ?", idempotencyKey).Error; err != nil {
+		return nil, fiber.NewError(fiber.StatusNotFound, Errors.ErrFriendRequestNotFound)
+	}
+	return &request, nil
+}
+
+func (repo *SocialRepository) CreateFriendRequest(ctx context.Context, senderId uuid.UUID, receiverId uuid.UUID, idempotencyKey *string) (*Domain.FriendRequest, error) {
 	request := &Domain.FriendRequest{
-		SenderId:   senderId,
-		ReceiverId: receiverId,
-		Status:     Domain.FriendPending,
+		SenderId:       senderId,
+		ReceiverId:     receiverId,
+		Status:         Domain.FriendPending,
+		IdempotencyKey: idempotencyKey,
 	}
 	if err := repo.db.DB.WithContext(ctx).Create(request).Error; err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
@@ -99,6 +109,20 @@ func (repo *SocialRepository) AcceptFriendRequest(ctx context.Context, receiverI
 func (repo *SocialRepository) RejectFriendRequest(ctx context.Context, receiverId, requestId uuid.UUID) error {
 	var request Domain.FriendRequest
 	if err := repo.db.DB.WithContext(ctx).Where("id = ? AND receiver_id = ? AND status = ?", requestId, receiverId, Domain.FriendPending).First(&request).Error; err != nil {
+		return fiber.NewError(fiber.StatusNotFound, Errors.ErrFriendRequestNotFound)
+	}
+
+	request.Status = Domain.FriendRejected
+	if err := repo.db.DB.WithContext(ctx).Save(&request).Error; err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
+	}
+
+	return nil
+}
+
+func (repo *SocialRepository) CancelFriendRequest(ctx context.Context, senderId, requestId uuid.UUID) error {
+	var request Domain.FriendRequest
+	if err := repo.db.DB.WithContext(ctx).Where("id = ? AND sender_id = ? AND status = ?", requestId, senderId, Domain.FriendPending).First(&request).Error; err != nil {
 		return fiber.NewError(fiber.StatusNotFound, Errors.ErrFriendRequestNotFound)
 	}
 

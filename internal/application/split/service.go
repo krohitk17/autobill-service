@@ -17,20 +17,28 @@ import (
 )
 
 type SplitService struct {
-	repo        RepositoryPorts.SplitRepositoryPort
-	groupRepo   RepositoryPorts.GroupRepositoryPort
-	balanceRepo RepositoryPorts.BalanceRepositoryPort
+	repo      RepositoryPorts.SplitRepositoryPort
+	groupRepo RepositoryPorts.GroupRepositoryPort
 }
 
-func CreateSplitService(repo RepositoryPorts.SplitRepositoryPort, groupRepo RepositoryPorts.GroupRepositoryPort, balanceRepo RepositoryPorts.BalanceRepositoryPort) HttpPorts.SplitUseCase {
+func CreateSplitService(repo RepositoryPorts.SplitRepositoryPort, groupRepo RepositoryPorts.GroupRepositoryPort) HttpPorts.SplitUseCase {
 	return &SplitService{
-		repo:        repo,
-		groupRepo:   groupRepo,
-		balanceRepo: balanceRepo,
+		repo:      repo,
+		groupRepo: groupRepo,
 	}
 }
 
 func (s *SplitService) CreateSplit(ctx context.Context, userId uuid.UUID, input Dtos.CreateSplitInput) (*Dtos.SplitResult, error) {
+	if input.IdempotencyKey != "" {
+		existing, err := s.repo.GetSplitByIdempotencyKey(ctx, input.IdempotencyKey)
+		if err == nil && existing != nil {
+			if existing.CreatedByID != userId {
+				return nil, fiber.NewError(fiber.StatusConflict, Errors.ErrIdempotencyKeyConflict)
+			}
+			return s.splitToDto(existing), nil
+		}
+	}
+
 	if !Domain.IsValidSplitType(input.Type) {
 		return nil, fiber.NewError(fiber.StatusBadRequest, Errors.ErrInvalidSplitType)
 	}
@@ -105,16 +113,15 @@ func (s *SplitService) CreateSplit(ctx context.Context, userId uuid.UUID, input 
 		SimplifyDebts: input.SimplifyDebts,
 		CreatedByID:   userId,
 	}
+	if input.IdempotencyKey != "" {
+		split.IdempotencyKey = &input.IdempotencyKey
+	}
 
 	createdSplit, createdParticipants, dbErr := s.repo.CreateSplitWithParticipants(ctx, split, domainParticipants)
 	if dbErr != nil {
 		return nil, dbErr
 	}
 	createdSplit.Participants = createdParticipants
-
-	if err := s.balanceRepo.UpdateBalancesForSplit(ctx, createdSplit, createdParticipants); err != nil {
-		return nil, err
-	}
 
 	Logger.Debug().
 		Str("operation", "CreateSplit").
@@ -197,44 +204,56 @@ func (s *SplitService) ReverseSplit(ctx context.Context, userId, splitId uuid.UU
 		return nil, fiber.NewError(fiber.StatusNotFound, Errors.ErrSplitNotFound)
 	}
 
-	isReversed, err := s.repo.IsSplitReversed(ctx, splitId)
+	pendingSettlementCount, err := s.repo.GetPendingSettlementCountBySplitId(ctx, splitId)
 	if err != nil {
 		return nil, err
 	}
-	if isReversed {
-		return nil, fiber.NewError(fiber.StatusBadRequest, Errors.ErrSplitAlreadyReversed)
+	if pendingSettlementCount > 0 {
+		return nil, fiber.NewError(fiber.StatusConflict, Errors.ErrSplitHasPendingSettlements)
 	}
 
-	reversalSplit := &Domain.Split{
-		Type:         originalSplit.Type,
-		DivisionType: originalSplit.DivisionType,
-		TotalAmount:  -originalSplit.TotalAmount,
-		Currency:     originalSplit.Currency,
-		Description:  "Reversal: " + originalSplit.Description,
-		GroupID:      originalSplit.GroupID,
-		CreatedByID:  userId,
+	confirmedTotalsByPayer, err := s.repo.GetConfirmedSettlementTotalsByPayer(ctx, splitId)
+	if err != nil {
+		return nil, err
 	}
 
-	reversalParticipants := make([]Domain.SplitParticipant, len(originalSplit.Participants))
-	for i, p := range originalSplit.Participants {
-		reversalParticipants[i] = Domain.SplitParticipant{
-			UserID:      p.UserID,
-			ShareAmount: -p.ShareAmount,
-			Currency:    p.Currency,
-			IsSettled:   false,
+	for payerID, paidAmount := range confirmedTotalsByPayer {
+		if paidAmount <= 0 || payerID == originalSplit.CreatedByID {
+			continue
+		}
+
+		reverseSplit := &Domain.Split{
+			Type:          originalSplit.Type,
+			DivisionType:  Domain.SplitDivisionCustom,
+			TotalAmount:   paidAmount,
+			Currency:      originalSplit.Currency,
+			Description:   "Refund reverse split: " + originalSplit.Description,
+			GroupID:       originalSplit.GroupID,
+			CreatedByID:   payerID,
+			SimplifyDebts: originalSplit.SimplifyDebts,
+		}
+
+		reverseParticipants := []Domain.SplitParticipant{
+			{
+				UserID:      originalSplit.CreatedByID,
+				ShareAmount: paidAmount,
+				Currency:    originalSplit.Currency,
+				IsSettled:   false,
+			},
+		}
+
+		_, _, createErr := s.repo.CreateSplitWithParticipants(ctx, reverseSplit, reverseParticipants)
+		if createErr != nil {
+			return nil, createErr
 		}
 	}
 
-	createdReversal, createdParticipants, rErr := s.repo.CreateReversalSplitWithParticipants(ctx, splitId, reversalSplit, reversalParticipants)
-	if rErr != nil {
-		return nil, rErr
-	}
-
-	createdReversal.Participants = createdParticipants
-	if err := s.balanceRepo.UpdateBalancesForSplit(ctx, createdReversal, createdParticipants); err != nil {
+	err = s.repo.DeleteSplitWithBalanceRollback(ctx, originalSplit, originalSplit.Participants)
+	if err != nil {
 		return nil, err
 	}
-	return s.splitToDto(createdReversal), nil
+
+	return s.splitToDto(originalSplit), nil
 }
 
 func (s *SplitService) splitToDto(split *Domain.Split) *Dtos.SplitResult {

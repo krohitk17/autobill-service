@@ -10,6 +10,7 @@ import (
 
 type BalanceRepositoryPort interface {
 	GetUserBalances(ctx context.Context, userId uuid.UUID) ([]Domain.UserBalance, error)
+	GetUserBalancesWithOtherUser(ctx context.Context, userId, otherUserId uuid.UUID) ([]Domain.UserBalance, error)
 	UpdateBalancesForSplit(ctx context.Context, split *Domain.Split, participants []Domain.SplitParticipant) error
 
 	GetGroupBalances(ctx context.Context, groupId uuid.UUID) ([]Domain.GroupBalance, error)

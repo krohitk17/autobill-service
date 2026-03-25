@@ -25,6 +25,7 @@ func (r BalanceRouter) RegisterRoutes() {
 	r.App.Use(Middlewares.AuthMiddleware(r.util))
 
 	r.App.Get("/me", r.handler.GetMyBalanceHandler).Name("getMyBalance")
+	r.App.Get("/users/:userId", r.handler.GetBalanceWithUserHandler).Name("getBalanceWithUser")
 
 	r.App.Get("/groups/:groupId", r.handler.GetGroupBalanceHandler).Name("getGroupBalance")
 	r.App.Post("/groups/:groupId/recalculate", r.handler.RecalculateGroupBalanceHandler).Name("recalculateGroupBalance")

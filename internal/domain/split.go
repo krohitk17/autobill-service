@@ -7,12 +7,13 @@ import (
 type Split struct {
 	BaseModel
 
-	Type          SplitType         `gorm:"type:varchar(20);not null" json:"type"`
-	DivisionType  SplitDivisionType `gorm:"type:varchar(20);not null" json:"division_type"`
-	TotalAmount   int64             `gorm:"not null" json:"total_amount"`
-	Currency      Currency          `gorm:"type:varchar(10);not null" json:"currency"`
-	Description   string            `gorm:"type:varchar(500)" json:"description"`
-	SimplifyDebts *bool             `gorm:"default:null" json:"simplify_debts"`
+	Type           SplitType         `gorm:"type:varchar(20);not null" json:"type"`
+	DivisionType   SplitDivisionType `gorm:"type:varchar(20);not null" json:"division_type"`
+	TotalAmount    int64             `gorm:"not null" json:"total_amount"`
+	Currency       Currency          `gorm:"type:varchar(10);not null" json:"currency"`
+	Description    string            `gorm:"type:varchar(500)" json:"description"`
+	SimplifyDebts  *bool             `gorm:"default:null" json:"simplify_debts"`
+	IdempotencyKey *string           `gorm:"type:varchar(64);uniqueIndex" json:"idempotency_key,omitempty"`
 
 	GroupID *uuid.UUID `gorm:"type:uuid;index" json:"group_id,omitempty"`
 	Group   *Group     `gorm:"foreignKey:GroupID;references:Id;constraint:OnDelete:SET NULL"`

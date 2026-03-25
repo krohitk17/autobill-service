@@ -31,6 +31,25 @@ func (h *BalanceHandler) GetMyBalanceHandler(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(ToUserBalanceResponseDto(result))
 }
 
+func (h *BalanceHandler) GetBalanceWithUserHandler(c *fiber.Ctx) error {
+	ctx := Middlewares.GetContext(c)
+	userId, err := Helpers.GetUserIdFromContext(c)
+	if err != nil {
+		return err
+	}
+	otherUserId, err := Helpers.ParseUUID(c.Params("userId"))
+	if err != nil {
+		return err
+	}
+
+	result, err := h.service.GetBalanceWithUser(ctx, userId, otherUserId)
+	if err != nil {
+		return err
+	}
+
+	return c.Status(fiber.StatusOK).JSON(ToUserBalanceResponseDto(result))
+}
+
 func (h *BalanceHandler) GetGroupBalanceHandler(c *fiber.Ctx) error {
 	ctx := Middlewares.GetContext(c)
 	userId, err := Helpers.GetUserIdFromContext(c)

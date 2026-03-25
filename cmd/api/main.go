@@ -2,7 +2,6 @@ package main
 
 import (
 	"autobill-service/cmd/api/apps"
-	"autobill-service/internal/adapters/inbound/http/health"
 	Middlewares "autobill-service/internal/adapters/inbound/http/middleware"
 	Config "autobill-service/internal/infrastructure/config"
 	DB "autobill-service/internal/infrastructure/db"
@@ -19,13 +18,14 @@ import (
 
 func main() {
 	config := Config.Load()
+	Logger.Configure(string(config.Environment), config.LogLevel)
 
 	Logger.Info().
 		Str("environment", string(config.Environment)).
 		Str("port", config.Server.Port).
 		Msg("Starting autobill-service")
 
-	db, dbErr := DB.CreatePostgresDb(config.DBUrl)
+	db, dbErr := DB.CreatePostgresDb(config.Database)
 	if dbErr != nil {
 		Logger.Fatal().Err(dbErr).Msg("Failed to connect to database")
 	}
@@ -34,8 +34,6 @@ func main() {
 
 	app := fiber.New(fiber.Config{
 		AppName:      "autobill-service",
-		ReadTimeout:  config.Server.ReadTimeout,
-		WriteTimeout: config.Server.WriteTimeout,
 		ErrorHandler: Middlewares.GlobalErrorHandler,
 	})
 
@@ -67,16 +65,8 @@ func registerMiddleware(app *fiber.App, config Config.Config) {
 	}))
 
 	app.Use(Middlewares.TimeoutMiddleware(Middlewares.TimeoutConfig{
-		Timeout: 30 * time.Second,
+		Timeout: config.Server.Timeout,
 		Message: "Request timeout",
-	}))
-
-	app.Use(Middlewares.CORSMiddleware(Middlewares.CORSConfig{
-		AllowOrigins:     config.CORS.AllowOrigins,
-		AllowMethods:     config.CORS.AllowMethods,
-		AllowHeaders:     config.CORS.AllowHeaders,
-		AllowCredentials: config.CORS.AllowCredentials,
-		MaxAge:           86400,
 	}))
 
 	app.Use(Middlewares.RequestContextMiddleware())
@@ -89,7 +79,6 @@ func registerMiddleware(app *fiber.App, config Config.Config) {
 }
 
 func MountApps(app *fiber.App, util JWTUtil.JWTUtil, db DB.PostgresDB) {
-	health.RegisterRoutes(app, db.DB)
 	app.Mount("/auth", apps.CreateAuthApp(util, db).App)
 	app.Mount("/user", apps.CreateUserApp(util, db).App)
 	app.Mount("/social", apps.CreateSocialApp(util, db).App)

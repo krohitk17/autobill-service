@@ -15,6 +15,7 @@ type Settlement struct {
 	Amount         int64     `gorm:"not null" json:"amount"`
 	Currency       Currency  `gorm:"type:varchar(10);not null" json:"currency"`
 	Date           time.Time `gorm:"not null" json:"date"`
+	Confirmed      bool      `gorm:"not null;default:false" json:"confirmed"`
 	IdempotencyKey *string   `gorm:"type:varchar(64);uniqueIndex" json:"idempotency_key,omitempty"`
 
 	Split Split `gorm:"foreignKey:SplitID;references:Id;constraint:OnDelete:CASCADE"`

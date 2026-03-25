@@ -28,6 +28,7 @@ func (r *SocialRouter) RegisterRoutes() {
 	r.App.Post("/requests", r.handler.SendFriendRequestHandler).Name("sendFriendRequest")
 	r.App.Post("/requests/:requestId/accept", r.handler.AcceptFriendRequestHandler).Name("acceptFriendRequest")
 	r.App.Delete("/requests/:requestId", r.handler.RejectFriendRequestHandler).Name("rejectFriendRequest")
+	r.App.Delete("/requests/:requestId/cancel", r.handler.CancelFriendRequestHandler).Name("cancelFriendRequest")
 
 	r.App.Get("/friends", r.handler.GetFriendsListHandler).Name("getFriends")
 	r.App.Delete("/friends/:friendId", r.handler.RemoveFriendHandler).Name("removeFriend")

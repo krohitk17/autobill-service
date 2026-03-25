@@ -47,6 +47,28 @@ func (s *BalanceService) GetMyBalance(ctx context.Context, userId uuid.UUID) (*D
 	}, nil
 }
 
+func (s *BalanceService) GetBalanceWithUser(ctx context.Context, userId, otherUserId uuid.UUID) (*Dtos.UserBalanceResult, error) {
+	balances, dbErr := s.repo.GetUserBalancesWithOtherUser(ctx, userId, otherUserId)
+	if dbErr != nil {
+		return nil, dbErr
+	}
+
+	balanceItems := make([]Dtos.UserBalanceItemResult, len(balances))
+	for i, b := range balances {
+		balanceItems[i] = Dtos.UserBalanceItemResult{
+			OtherUserID:   b.OtherUserID.String(),
+			OtherUserName: b.OtherUser.Name,
+			NetAmount:     b.NetAmount,
+			Currency:      string(b.Currency),
+		}
+	}
+
+	return &Dtos.UserBalanceResult{
+		UserID:   userId.String(),
+		Balances: balanceItems,
+	}, nil
+}
+
 func (s *BalanceService) GetGroupBalance(ctx context.Context, userId, groupId uuid.UUID) (*Dtos.GroupBalanceResult, error) {
 	_, memberErr := s.groupRepo.GetMembership(ctx, groupId, userId)
 	if memberErr != nil {

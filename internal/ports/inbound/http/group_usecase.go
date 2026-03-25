@@ -17,6 +17,7 @@ type GroupUseCase interface {
 	DeleteGroup(ctx context.Context, userId, groupId uuid.UUID) error
 	AddMember(ctx context.Context, userId, groupId uuid.UUID, input Dtos.AddMemberInput) (*Dtos.MemberResult, error)
 	UpdateMemberRole(ctx context.Context, userId, groupId, memberId uuid.UUID, role string) error
+	TransferOwnership(ctx context.Context, userId, groupId, newOwnerId uuid.UUID) error
 	RemoveMember(ctx context.Context, userId, groupId, memberId uuid.UUID) error
 	LeaveGroup(ctx context.Context, userId, groupId uuid.UUID) error
 }

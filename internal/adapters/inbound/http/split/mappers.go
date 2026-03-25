@@ -19,14 +19,15 @@ func ToParticipantInputList(dtos []AdapterDtos.ParticipantInput) []ServiceDtos.P
 
 func ToCreateSplitInput(dto *AdapterDtos.CreateSplitRequestDto) ServiceDtos.CreateSplitInput {
 	return ServiceDtos.CreateSplitInput{
-		Type:          dto.Type,
-		DivisionType:  dto.DivisionType,
-		TotalAmount:   dto.TotalAmount,
-		Currency:      dto.Currency,
-		Description:   dto.Description,
-		GroupID:       dto.GroupID,
-		SimplifyDebts: dto.SimplifyDebts,
-		Participants:  ToParticipantInputList(dto.Participants),
+		Type:           dto.Type,
+		DivisionType:   dto.DivisionType,
+		TotalAmount:    dto.TotalAmount,
+		Currency:       dto.Currency,
+		Description:    dto.Description,
+		GroupID:        dto.GroupID,
+		SimplifyDebts:  dto.SimplifyDebts,
+		IdempotencyKey: dto.IdempotencyKey,
+		Participants:   ToParticipantInputList(dto.Participants),
 	}
 }
 

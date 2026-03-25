@@ -29,6 +29,14 @@ func (repo *BalanceRepository) GetUserBalances(ctx context.Context, userId uuid.
 	return balances, nil
 }
 
+func (repo *BalanceRepository) GetUserBalancesWithOtherUser(ctx context.Context, userId, otherUserId uuid.UUID) ([]Domain.UserBalance, error) {
+	var balances []Domain.UserBalance
+	if err := repo.db.DB.WithContext(ctx).Preload("OtherUser").Where("user_id = ? AND other_user_id = ?", userId, otherUserId).Find(&balances).Error; err != nil {
+		return nil, fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
+	}
+	return balances, nil
+}
+
 func (repo *BalanceRepository) UpdateBalancesForSplit(ctx context.Context, split *Domain.Split, participants []Domain.SplitParticipant) error {
 	tx := repo.db.DB.WithContext(ctx).Begin()
 	defer func() {

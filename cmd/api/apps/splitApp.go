@@ -17,9 +17,8 @@ func CreateSplitApp(util JWTUtil.JWTUtil, db DB.PostgresDB) SplitAdapter.SplitRo
 
 	splitRepo := RepositoryAdapters.CreateSplitRepository(db)
 	groupRepo := RepositoryAdapters.CreateGroupRepository(db)
-	balanceRepo := RepositoryAdapters.CreateBalanceRepository(db)
 
-	splitService := SplitApp.CreateSplitService(splitRepo, groupRepo, balanceRepo)
+	splitService := SplitApp.CreateSplitService(splitRepo, groupRepo)
 
 	splitHandler := SplitAdapter.CreateSplitHandler(splitService)
 

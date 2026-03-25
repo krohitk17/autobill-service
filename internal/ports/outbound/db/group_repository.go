@@ -19,6 +19,7 @@ type GroupRepositoryPort interface {
 	AddMember(ctx context.Context, groupId, userId uuid.UUID, role Domain.GroupRole) (*Domain.GroupMembership, error)
 	GetMembership(ctx context.Context, groupId, userId uuid.UUID) (*Domain.GroupMembership, error)
 	UpdateMemberRole(ctx context.Context, groupId, userId uuid.UUID, role Domain.GroupRole) error
+	TransferOwnership(ctx context.Context, groupId, currentOwnerId, newOwnerId uuid.UUID) error
 	RemoveMember(ctx context.Context, groupId, userId uuid.UUID) error
 	IsGroupAdmin(ctx context.Context, groupId, userId uuid.UUID) (bool, error)
 	IsGroupOwner(ctx context.Context, groupId, userId uuid.UUID) (bool, error)

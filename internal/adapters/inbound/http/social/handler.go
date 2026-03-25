@@ -54,7 +54,7 @@ func (h *SocialHandler) SendFriendRequestHandler(c *fiber.Ctx) error {
 		return err
 	}
 
-	result, err := h.service.SendFriendRequest(ctx, senderId, reqBody.ReceiverId)
+	result, err := h.service.SendFriendRequest(ctx, senderId, reqBody.ReceiverId, reqBody.IdempotencyKey)
 	if err != nil {
 		return err
 	}
@@ -94,6 +94,25 @@ func (h *SocialHandler) RejectFriendRequestHandler(c *fiber.Ctx) error {
 	}
 
 	err = h.service.RejectFriendRequest(ctx, receiverId, requestId)
+	if err != nil {
+		return err
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func (h *SocialHandler) CancelFriendRequestHandler(c *fiber.Ctx) error {
+	ctx := Middlewares.GetContext(c)
+	senderId, err := Helpers.GetUserIdFromContext(c)
+	if err != nil {
+		return err
+	}
+
+	requestId, err := Helpers.ParseUUID(c.Params("requestId"))
+	if err != nil {
+		return err
+	}
+
+	err = h.service.CancelFriendRequest(ctx, senderId, requestId)
 	if err != nil {
 		return err
 	}
