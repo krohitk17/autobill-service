@@ -196,7 +196,9 @@ func (repo *BalanceRepository) GetSettlementsForSplits(ctx context.Context, spli
 		return []Domain.Settlement{}, nil
 	}
 	var settlements []Domain.Settlement
-	if err := repo.db.DB.WithContext(ctx).Where("split_id IN ?", splitIDs).Find(&settlements).Error; err != nil {
+	if err := repo.db.DB.WithContext(ctx).
+		Where("split_id IN ? AND confirmed = ?", splitIDs, true).
+		Find(&settlements).Error; err != nil {
 		return nil, fiber.NewError(fiber.StatusInternalServerError, Errors.ErrDatabaseFailure)
 	}
 	return settlements, nil

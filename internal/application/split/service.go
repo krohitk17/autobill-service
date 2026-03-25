@@ -72,6 +72,11 @@ func (s *SplitService) CreateSplit(ctx context.Context, userId uuid.UUID, input 
 		if memberErr != nil {
 			return nil, memberErr
 		}
+		for _, participantID := range participantUUIDs {
+			if _, participantMemberErr := s.groupRepo.GetMembership(ctx, parsed, participantID); participantMemberErr != nil {
+				return nil, fiber.NewError(fiber.StatusBadRequest, Errors.ErrParticipantNotGroupMember)
+			}
+		}
 		groupId = &parsed
 	} else if input.Type == string(Domain.SplitTypeGroup) {
 		return nil, fiber.NewError(fiber.StatusBadRequest, Errors.ErrGroupIdRequired)

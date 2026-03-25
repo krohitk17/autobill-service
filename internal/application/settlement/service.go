@@ -65,6 +65,14 @@ func (s *SettlementService) CreateSettlement(ctx context.Context, userId uuid.UU
 		return nil, splitErr
 	}
 
+	if payeeUUID == userId {
+		return nil, fiber.NewError(fiber.StatusBadRequest, Errors.ErrCannotSettleWithSelf)
+	}
+
+	if payeeUUID != split.CreatedByID {
+		return nil, fiber.NewError(fiber.StatusBadRequest, Errors.ErrSettlementPayeeMustBeSplitOwner)
+	}
+
 	if Domain.Currency(input.Currency) != split.Currency {
 		return nil, fiber.NewError(fiber.StatusBadRequest, Errors.ErrCurrencyMismatch)
 	}
@@ -80,11 +88,6 @@ func (s *SettlementService) CreateSettlement(ctx context.Context, userId uuid.UU
 	}
 	if input.Amount > outstanding {
 		return nil, fiber.NewError(fiber.StatusBadRequest, Errors.ErrInvalidSettlementAmount)
-	}
-
-	_, payeeParticipantErr := s.splitRepo.GetParticipant(ctx, splitUUID, payeeUUID)
-	if payeeParticipantErr != nil {
-		return nil, fiber.NewError(fiber.StatusBadRequest, Errors.ErrPayeeNotParticipant)
 	}
 
 	var idempotencyKeyPtr *string

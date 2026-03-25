@@ -132,7 +132,7 @@ func (s *BalanceService) RecalculateGroupBalance(ctx context.Context, userId, gr
 		return nil, settlementErr
 	}
 
-	calculatedBalances := s.calculateGroupBalances(ctx, groupId, splits, settlements)
+	calculatedBalances := s.calculateGroupBalances(groupId, splits, settlements)
 
 	balances, dbErr := s.repo.ReplaceGroupBalances(ctx, groupId, calculatedBalances)
 	if dbErr != nil {
@@ -157,12 +157,7 @@ func (s *BalanceService) RecalculateGroupBalance(ctx context.Context, userId, gr
 	}, nil
 }
 
-func (s *BalanceService) calculateGroupBalances(ctx context.Context, groupId uuid.UUID, splits []Domain.Split, settlements []Domain.Settlement) []Domain.GroupBalance {
-	settlementMap := make(map[uuid.UUID][]Domain.Settlement)
-	for _, settlement := range settlements {
-		settlementMap[settlement.SplitID] = append(settlementMap[settlement.SplitID], settlement)
-	}
-
+func (s *BalanceService) calculateGroupBalances(groupId uuid.UUID, splits []Domain.Split, settlements []Domain.Settlement) []Domain.GroupBalance {
 	balanceMap := make(map[uuid.UUID]map[Domain.Currency]int64)
 
 	for _, split := range splits {
@@ -188,11 +183,6 @@ func (s *BalanceService) calculateGroupBalances(ctx context.Context, groupId uui
 	}
 
 	for _, settlement := range settlements {
-		isSettled, _ := s.repo.GetSettledParticipants(ctx, settlement.SplitID, settlement.PayerID)
-		if !isSettled {
-			continue
-		}
-
 		if balanceMap[settlement.PayerID] == nil {
 			balanceMap[settlement.PayerID] = make(map[Domain.Currency]int64)
 		}

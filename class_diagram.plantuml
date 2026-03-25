@@ -145,6 +145,81 @@ class GroupBalance {
 }
 
 ' ============================================
+' SCHEMA CONSTRAINT NOTES
+' ============================================
+note right of User
+    PK: id
+    UK: email
+end note
+
+note right of Credential
+    PK: id
+    UK: user_id
+    FK: user_id -> users.id
+end note
+
+note right of RefreshToken
+    PK: id
+    UK: token
+    FK: user_id -> users.id (CASCADE)
+end note
+
+note right of Friendship
+    PK: id
+    UK: (user_id, friend_id)
+    FK: user_id -> users.id (CASCADE)
+    FK: friend_id -> users.id (CASCADE)
+end note
+
+note right of FriendRequest
+    PK: id
+    UK: idempotency_key
+    FK: sender_id -> users.id (CASCADE)
+    FK: receiver_id -> users.id (CASCADE)
+end note
+
+note right of GroupMembership
+    PK: id
+    UK: (user_id, group_id)
+    FK: user_id -> users.id (CASCADE)
+    FK: group_id -> groups.id (CASCADE)
+end note
+
+note right of Split
+    PK: id
+    UK: idempotency_key
+    FK: created_by_id -> users.id (CASCADE)
+    FK: group_id -> groups.id (SET NULL)
+end note
+
+note right of SplitParticipant
+    PK: id
+    UK: (split_id, user_id)
+    FK: split_id -> splits.id (CASCADE)
+    FK: user_id -> users.id (CASCADE)
+end note
+
+note right of Settlement
+    PK: id
+    UK: idempotency_key
+    FK: split_id -> splits.id (CASCADE)
+    FK: payer_id -> users.id (CASCADE)
+    FK: payee_id -> users.id (CASCADE)
+end note
+
+note right of UserBalance
+    PK: id
+    FK: user_id -> users.id (CASCADE)
+    FK: other_user_id -> users.id (CASCADE)
+end note
+
+note right of GroupBalance
+    PK: id
+    FK: user_id -> users.id (CASCADE)
+    FK: group_id -> groups.id (CASCADE)
+end note
+
+' ============================================
 ' RELATIONSHIPS
 ' ============================================
 
@@ -163,30 +238,30 @@ BaseModel <|-- UserBalance
 BaseModel <|-- GroupBalance
 
 ' User relationships
-User "1" -- "1" Credential : has >
-User "1" -- "*" RefreshToken : has >
-User "1" -- "*" FriendRequest : sends >
-User "1" -- "*" FriendRequest : receives >
-User "1" -- "*" Friendship : has >
-User "1" -- "*" Friendship : friend of >
-User "1" -- "*" GroupMembership : has >
-User "1" -- "*" Group : owns >
-User "1" -- "*" SplitParticipant : participates >
-User "1" -- "*" Split : creates >
-User "1" -- "*" Settlement : pays >
-User "1" -- "*" Settlement : receives >
-User "1" -- "*" UserBalance : owns balance >
-User "1" -- "*" UserBalance : counterparty >
-User "1" -- "*" GroupBalance : has >
+User "1" -- "0..1" Credential : user_id
+User "1" -- "0..*" RefreshToken : user_id
+User "1" -- "0..*" FriendRequest : sender_id
+User "1" -- "0..*" FriendRequest : receiver_id
+User "1" -- "0..*" Friendship : user_id
+User "1" -- "0..*" Friendship : friend_id
+User "1" -- "0..*" GroupMembership : user_id
+User "1" -- "0..*" Group : owner_id
+User "1" -- "0..*" SplitParticipant : user_id
+User "1" -- "0..*" Split : created_by_id
+User "1" -- "0..*" Settlement : payer_id
+User "1" -- "0..*" Settlement : payee_id
+User "1" -- "0..*" UserBalance : user_id
+User "1" -- "0..*" UserBalance : other_user_id
+User "1" -- "0..*" GroupBalance : user_id
 
 ' Group relationships
-Group "1" -- "*" GroupMembership : contains >
-Group "0..1" -- "0..*" Split : has >
-Group "1" -- "*" GroupBalance : tracks >
+Group "1" -- "0..*" GroupMembership : group_id
+Group "1" -- "0..*" GroupBalance : group_id
+Group "0..1" -- "0..*" Split : group_id
 
 ' Split relationships
-Split "1" -- "*" SplitParticipant : includes >
-Split "1" -- "*" Settlement : settles >
+Split "1" -- "0..*" SplitParticipant : split_id
+Split "1" -- "0..*" Settlement : split_id
 
 ' Enum usage
 User ..> AccountStatus : uses
